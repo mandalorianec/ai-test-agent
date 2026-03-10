@@ -78,7 +78,7 @@ def generate_tests(swagger):
 
 
             for code in negative_codes:
-                display_code = "400 (Bad Request)" if code == "4XX" else code #?
+                display_code = "400 (Bad Request)" if code == "4XX" else code
                 error_description = responses.get(code, {}).get("description", "Возвращена ошибка валидации или сервера")
                 negative_test_text = (
                     f"### {summary}\n"
