@@ -1,7 +1,7 @@
 import json
 
-INPUT_FILE = "swagger.json"
-OUTPUT_FILE = "test_cases.txt"
+INPUT_FILE = "../swagger.json"
+OUTPUT_FILE = "../test_cases.txt"
 
 
 def load_swagger(file_path)->dict:
