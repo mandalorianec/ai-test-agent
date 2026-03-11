@@ -1,6 +1,6 @@
 import json
 
-INPUT_FILE = "discord-api.json"
+INPUT_FILE = "twilio-messaging.json"
 
 
 def load_swagger(file_path)->dict:
@@ -57,7 +57,7 @@ def generate_tests(swagger):
             if has_body:
                 pos_steps.append(f"{step}. Передать корректное JSON-тело запроса")
                 step+=1
-            pos_test_text = (f"### {summary}\n"
+            pos_test_text = (f"{summary}\n"
                              f"Endpoint: {method_upper} {path}\n"
                              f"Тип теста: Позитивный\n\n"
                              f"Шаги" + "\n".join(pos_steps) + "\n\n"
@@ -81,7 +81,7 @@ def generate_tests(swagger):
                 display_code = "400 (Bad Request)" if code == "4XX" else code
                 error_description = responses.get(code, {}).get("description", "Возвращена ошибка валидации или сервера")
                 negative_test_text = (
-                    f"### {summary}\n"
+                    f"{summary}\n"
                     f"Endpoint: {method_upper} {path}\n"
                     f"Тип теста: Негативный ({display_code})\n"
                     f"Шаги:\n"
@@ -125,6 +125,7 @@ def main():
     tests = generate_tests(swagger)
 
     print(get_json_response(INPUT_FILE))
+    #print(generate_tests(swagger))
 
     print(f"Сгенерировано тестов: {len(tests)}")
 
