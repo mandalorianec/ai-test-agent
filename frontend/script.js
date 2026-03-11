@@ -50,12 +50,6 @@ form.addEventListener("submit", async function (event) {
 function renderResults(data) {
     resultsBlock.innerHTML = ""
 
-    if (!data.success) {
-        statusBlock.textContent = "Сервер вернул ошибку."
-        resultsBlock.textContent = data.error || "Не удалось получить тест-кейсы."
-        return
-    }
-
     if (!data.tests || data.tests.length === 0) {
         statusBlock.textContent = "Готово, но тест кейсы не найдены."
         resultsBlock.textContent = "Результат пуст."
