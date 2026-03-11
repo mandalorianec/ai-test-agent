@@ -29,6 +29,5 @@ async def generate_test_cases(file: UploadFile = File(...)):
 
     # Возвращаем в нужном для фронта формате
     return {
-        "success": True,
         "tests": tests
     }
