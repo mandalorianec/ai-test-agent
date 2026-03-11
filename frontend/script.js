@@ -5,8 +5,6 @@ const fileInput = document.getElementById("file-send")
 const statusBlock = document.getElementById("status")
 const resultsBlock = document.getElementById("results")
 
-// Тествый ответ
-const USE_MOCK_RESPONSE = true;
 
 form.addEventListener("submit", async function (event) {
     event.preventDefault()
@@ -25,21 +23,6 @@ form.addEventListener("submit", async function (event) {
     statusBlock.textContent = "Файл выбран, пожалуйста подождите..."
 
     try {
-        // Тестовый ответ
-        if (USE_MOCK_RESPONSE) {
-            statusBlock.textContent = "Обработка..."
-            const mockData = {
-               success: true,
-                tests: [
-                    "### Авторизация\nEndpoint: POST /login\nТип теста: Позитивный\nШаги:\n1. Отправить POST запрос на /login\n2. Передать корректные данные\n3. Проверить статус ответа: 200\n4. Проверить корректность ответа",
-                    "### Получение пользователя\nEndpoint: GET /users/{id}\nТип теста: Негативный (404)\nШаги:\n1. Отправить GET запрос на /users/{id} с несуществующим id\n2. Проверить, что статус ответа 404"
-                ] 
-            }
-
-            renderResults(mockData)
-            return
-        }
-
         // Запрос
 
         const formData = new FormData()
