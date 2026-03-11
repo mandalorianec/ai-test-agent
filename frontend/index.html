@@ -1,0 +1,41 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Test Agent</title>
+    <link rel="stylesheet" href="./styles.css">
+    
+</head>
+<body>
+    <main>
+        <h1 class="title">AI Test Agent</h1>
+        <section class="file-sending">
+            <p class="file-sending__description">
+                Загрузите JSON-файл со Swagger/OpenAPI-спецификацией
+            </p>
+
+            <form action="" class="file-sending__form-sending form-sending" id="upload-form">
+                <div>
+                    <input 
+                    type="file" 
+                    accept=".json" 
+                    name="file" 
+                    class="form-sending__choose-input" 
+                    id="file-send">
+                </div>
+
+                <button class="form-sending__send-input" id="submit-btn" type="submit">
+                    Сгенерировать тест-кейсы
+                </button>
+            </form>
+
+            <div id="status" class="file-sending__status"></div>
+            <div id="results" class="file-sending__results"></div>
+        </section>
+    </main>
+
+
+
+    <script src="script.js"></script>
+</body>
+</html>
