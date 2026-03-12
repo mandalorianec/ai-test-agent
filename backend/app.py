@@ -1,10 +1,20 @@
 import json
 from fastapi import FastAPI, UploadFile, File, HTTPException
-
+from fastapi.middleware.cors import CORSMiddleware # Добавляем импорт
 from main import generate_tests
 
 app = FastAPI(title="api for tests")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://213.165.52.36",
+        "http://localhost",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/generate")
 async def generate_test_cases(file: UploadFile = File(...)):
