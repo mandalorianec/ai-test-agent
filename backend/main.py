@@ -60,7 +60,7 @@ def generate_tests(swagger):
             pos_test_text = (f"{summary}\n"
                              f"Endpoint: {method_upper} {path}\n"
                              f"Тип теста: Позитивный\n\n"
-                             f"Шаги" + "\n".join(pos_steps) + "\n\n"
+                             f"Шаги:\n" + "\n".join(pos_steps) + "\n\n"
                              f"Ожидаемый результат:\n"
                              f"- Статус ответа: {target_success}\n"
                              f"- {succes_description}\n"
