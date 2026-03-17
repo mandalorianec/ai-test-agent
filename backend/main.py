@@ -1,13 +1,120 @@
 import json
 
-INPUT_FILE = "twilio-messaging.json"
+INPUT_FILE = "petstore-local.json"
 
 
 def load_swagger(file_path)->dict:
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+def build_positive_test_case(summary, method_upper, path, path_params, query_params, has_body, target_success, success_description):
+    steps = []
+    step_number = 1
 
+    steps.append({
+        "step_number": step_number,
+        "action": f"Отправить {method_upper} запрос на endpoint {path}",
+        "expected_result": "Запрос отправлен"
+    })
+    step_number += 1
+
+    if path_params:
+        steps.append({
+            "step_number": step_number,
+            "action": f"Подставить валидные значения в path-параметры: {', '.join(path_params)}",
+            "expected_result": "Path-параметры заполнены корректно"
+        })
+        step_number += 1
+
+    if query_params:
+        steps.append({
+            "step_number": step_number,
+            "action": f"Указать валидные query-параметры: {', '.join(query_params)}",
+            "expected_result": "Query-параметры заполнены корректно"
+        })
+        step_number += 1
+
+    if has_body:
+        steps.append({
+            "step_number": step_number,
+            "action": "Передать корректное JSON-тело запроса",
+            "expected_result": "Тело запроса соответствует контракту API"
+        })
+        step_number += 1
+
+    return {
+        "name": f"{summary} — позитивный сценарий",
+        "description": f"Проверка успешного выполнения запроса {method_upper} {path}",
+        "preconditions": [
+            "API доступно",
+            "Пользователь авторизован, если endpoint требует авторизации",
+            "Есть валидные тестовые данные для запроса"
+        ],
+        "postconditions": [
+            "Система остается в консистентном состоянии"
+        ],
+        "priority": "Medium",
+        "type": "Positive",
+        "endpoint": {
+            "method": method_upper,
+            "path": path
+        },
+        "steps": steps,
+        "expected_result": {
+            "status_code": target_success,
+            "message": success_description
+        },
+        "tags": ["api", "positive", method_upper.lower()],
+        "metadata": {
+            "has_body": has_body,
+            "path_params": path_params,
+            "query_params": query_params
+        }
+    }
+
+
+def build_negative_test_case(summary, method_upper, path, code, error_description):
+    display_code = "400 (Bad Request)" if code == "4XX" else code
+
+    steps = [
+        {
+            "step_number": 1,
+            "action": f"Отправить {method_upper} запрос на endpoint {path}",
+            "expected_result": "Запрос отправлен"
+        },
+        {
+            "step_number": 2,
+            "action": "Передать некорректные, пустые или невалидные данные",
+            "expected_result": "Сервис выполняет валидацию и отклоняет запрос"
+        }
+    ]
+
+    return {
+        "name": f"{summary} — негативный сценарий ({display_code})",
+        "description": f"Проверка обработки ошибки для запроса {method_upper} {path}",
+        "preconditions": [
+            "API доступно",
+            "Подготовлены невалидные или неполные входные данные"
+        ],
+        "postconditions": [
+            "Некорректные данные не приводят к успешному изменению состояния системы"
+        ],
+        "priority": "Medium",
+        "type": "Negative",
+        "endpoint": {
+            "method": method_upper,
+            "path": path
+        },
+        "steps": steps,
+        "expected_result": {
+            "status_code": code,
+            "message": error_description
+        },
+        "tags": ["api", "negative", method_upper.lower()],
+        "metadata": {
+            "error_code": code
+        }
+    }
 def generate_tests(swagger):
     if not(swagger):
         return []
@@ -31,7 +138,7 @@ def generate_tests(swagger):
             all_params = path_level_params + method_params
 
             # разделение параметров по расположению
-            parameters = info.get("parameters", [])
+            #parameters = info.get("parameters", [])
             path_params = [p.get("name") for p in all_params if isinstance(p, dict) and p.get("in") == "path"]
             query_params = [p.get("name") for p in all_params if isinstance(p, dict) and p.get("in") == "query"]
 
@@ -44,70 +151,54 @@ def generate_tests(swagger):
 
             target_success = success_codes[0] if success_codes else "200"
             succes_description = responses.get(target_success, {}).get("description", "Запрос выполнен успешно")
-            pos_steps = []
-            pos_steps.append(f"1. Отправить {method_upper} запрос на {path}")
 
-            step = 2
-            if path_params:
-                pos_steps.append(f"{step}. Подставить валидные значения в путь: {', '.join(path_params)}")
-                step += 1
-            if query_params:
-                pos_steps.append(f"{step}. Указать Query-параметры: {', '.join(query_params)}")
-                step+=1
-            if has_body:
-                pos_steps.append(f"{step}. Передать корректное JSON-тело запроса")
-                step+=1
-            pos_test_text = (f"{summary}\n"
-                             f"Endpoint: {method_upper} {path}\n"
-                             f"Тип теста: Позитивный\n\n"
-                             f"Шаги:\n" + "\n".join(pos_steps) + "\n\n"
-                             f"Ожидаемый результат:\n"
-                             f"- Статус ответа: {target_success}\n"
-                             f"- {succes_description}\n"
+            positive_test = build_positive_test_case(
+                summary=summary,
+                method_upper=method_upper,
+                path=path,
+                path_params=path_params,
+                query_params=query_params,
+                has_body=has_body,
+                target_success=target_success,
+                success_description=succes_description
             )
-            tests.append(pos_test_text)
+            tests.append(positive_test)
 
 
 
             # негативные тесты
             negative_codes = [code for code in responses if code.startswith("4") or code.startswith("5")]
 
-            # стандартный негативный код, если в сваггере их нет
             if not negative_codes:
                 negative_codes = ["400"]
-
-
             for code in negative_codes:
-                display_code = "400 (Bad Request)" if code == "4XX" else code
-                error_description = responses.get(code, {}).get("description", "Возвращена ошибка валидации или сервера")
-                negative_test_text = (
-                    f"{summary}\n"
-                    f"Endpoint: {method_upper} {path}\n"
-                    f"Тип теста: Негативный ({display_code})\n"
-                    f"Шаги:\n"
-                    f"1. Отправить {method_upper} запрос на {path}\n"
-                    f"2. Передать некорректные или пустые данные\n"
-                    f"Ожидаемый результат:\n"
-                    f"- Статус ответа: {code}\n"
-                    f"- Сообщение об ошибке: {error_description}"
+                error_description = responses.get(code, {}).get(
+                    "description",
+                    "Возвращена ошибка валидации или сервера"
                 )
-                tests.append(negative_test_text)
-
+                negative_test = build_negative_test_case(
+                    summary=summary,
+                    method_upper=method_upper,
+                    path=path,
+                    code=code,
+                    error_description=error_description
+                )
+                tests.append(negative_test)
     return tests
 
 
 
 def get_json_response(file_path):
-
     swagger_data = load_swagger(file_path)
 
     if swagger_data is None:
-        return json.dumps({"success": False, "tests": []}, ensure_ascii=False)
+        return json.dumps({"success": False, "tests": []}, ensure_ascii=False, indent=4)
 
     try:
         tests = generate_tests(swagger_data)
         result = {
             "success": True,
+            "total_tests": len(tests),
             "tests": tests
         }
     except Exception as e:
@@ -125,7 +216,6 @@ def main():
     tests = generate_tests(swagger)
 
     print(get_json_response(INPUT_FILE))
-    #print(generate_tests(swagger))
 
     print(f"Сгенерировано тестов: {len(tests)}")
 
