@@ -22,7 +22,7 @@ TEST_IT_URL = "https://team-a0ff.testit.software/api/v2/workItems"
 TEST_IT_API_TOKEN = "UDlWRVhxa0hrYlFqekVtWWN4"
 
 PROJECT_ID = "019ce25b-28d8-7ff0-b14f-0d2f51c7a953"
-SECTION_ID = "f8351326-da10-4904-b0af-68ec347c1c36"
+SECTION_ID = "68138dda-b2a8-4c10-b4e3-78a82bcc48a5"
 
 HEADERS = {
     "Authorization": f"PrivateToken {TEST_IT_API_TOKEN}",
