@@ -18,16 +18,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-TEST_IT_URL = "https://api.testit.software/api/v2/workItems"
+TEST_IT_URL = "https://team-a0ff.testit.software/api/v2/workItems"
 TEST_IT_API_TOKEN = "UDlWRVhxa0hrYlFqekVtWWN4"
 
 PROJECT_ID = "019ce25b-28d8-7ff0-b14f-0d2f51c7a953"
-SECTION_ID = "51b0a836-ad1c-4ae5-843c-15ed160c98a8"
+SECTION_ID = "f8351326-da10-4904-b0af-68ec347c1c36"
 
 HEADERS = {
-    "Authorization": f"Bearer {TEST_IT_API_TOKEN}",
+    "Authorization": f"PrivateToken {TEST_IT_API_TOKEN}",
     "Content-Type": "application/json"
 }
+
+MAX_CONCURRENT_REQUESTS = 5
+RETRIES = 3
+TIMEOUT = 30.0
+
+semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 
 def map_to_testit_format(test: dict) -> dict:
@@ -41,7 +47,7 @@ def map_to_testit_format(test: dict) -> dict:
         "state": "NeedsWork",
         "priority": test.get("priority", "Medium"),
         "attributes": {},
-        "tags": test.get("tags", []),
+        "tags": [{"name": tag} for tag in test.get("tags", [])],
         "preconditionSteps": [
             {"action": p} for p in test.get("preconditions", [])
         ],
@@ -60,15 +66,60 @@ def map_to_testit_format(test: dict) -> dict:
 
 
 async def send_to_testit(client: httpx.AsyncClient, test: dict):
-    response = await client.post(
-        TEST_IT_URL,
-        json=test,
-        headers=HEADERS
+    for attempt in range(RETRIES):
+        try:
+            async with semaphore:
+                response = await client.post(
+                    TEST_IT_URL,
+                    json=test,
+                    headers=HEADERS
+                )
+
+            return {
+                "status": response.status_code,
+                "name": test["name"],
+                "response": response.text
+            }
+
+        except httpx.PoolTimeout:
+            if attempt < RETRIES - 1:
+                await asyncio.sleep(1 * (attempt + 1))
+                continue
+            return {
+                "status": "error",
+                "name": test["name"],
+                "response": "PoolTimeout"
+            }
+
+        except Exception as e:
+            if attempt < RETRIES - 1:
+                await asyncio.sleep(1 * (attempt + 1))
+                continue
+            return {
+                "status": "error",
+                "name": test["name"],
+                "response": str(e)
+            }
+
+
+async def send_all_tests(testit_tests: list):
+    limits = httpx.Limits(
+        max_connections=10,
+        max_keepalive_connections=5
     )
-    return {
-        "status": response.status_code,
-        "response": response.text
-    }
+
+    async with httpx.AsyncClient(
+            timeout=TIMEOUT,
+            limits=limits
+    ) as client:
+        tasks = [
+            send_to_testit(client, test)
+            for test in testit_tests
+        ]
+
+        results = await asyncio.gather(*tasks)
+
+    return results
 
 
 @app.post("/generate")
@@ -87,18 +138,9 @@ async def generate_test_cases(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # преобразуем в формат Test IT
     testit_tests = [map_to_testit_format(t) for t in tests]
 
-    # отправляем
-    async with httpx.AsyncClient() as client:
-        tasks = [
-            send_to_testit(client, test)
-            for test in testit_tests
-        ]
-        results = await asyncio.gather(*tasks)
+    await send_all_tests(testit_tests)
 
-    return {
-        "generated": len(tests),
-        "sent": results
-    }
+
+    return {"created": len(tests)}
