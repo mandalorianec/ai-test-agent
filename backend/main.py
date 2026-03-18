@@ -1,13 +1,135 @@
 import json
 
-INPUT_FILE = "petstore-local.json"
+INPUT_FILE = "discord-api.json"
 
 
 def load_swagger(file_path)->dict:
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def build_positive_test_case(summary, method_upper, path, path_params, query_params, has_body, target_success, success_description):
+def extract_security_requirements(swagger, info):
+    operation_security = info.get("security")
+    global_security = swagger.get("security", [])
+
+    security = operation_security if operation_security is not None else global_security
+
+    requirements = []
+    for item in security:
+        if isinstance(item, dict):
+            for scheme_name in item.keys():
+                requirements.append(scheme_name)
+
+    return requirements
+def extract_required_body_fields(swagger, info):
+    request_body = info.get("requestBody", {})
+    content = request_body.get("content", {})
+    json_content = content.get("application/json", {})
+    schema = json_content.get("schema", {})
+
+    schema = resolve_schema_ref(swagger, schema)
+
+    if not isinstance(schema, dict):
+        return []
+
+    return schema.get("required", [])
+def resolve_schema_ref(swagger, schema):
+    if not isinstance(schema, dict):
+        return schema
+
+    ref = schema.get("$ref")
+    if not ref:
+        return schema
+
+    if not ref.startswith("#/"):
+        return schema
+
+    parts = ref.lstrip("#/").split("/")
+    result = swagger
+
+    for part in parts:
+        if isinstance(result, dict):
+            result = result.get(part)
+        else:
+            return schema
+
+    return result if result is not None else schema
+
+def extract_required_parameters(all_params):
+    required_path = []
+    required_query = []
+    required_header = []
+
+    for p in all_params:
+        if not isinstance(p, dict):
+            continue
+
+        name = p.get("name")
+        location = p.get("in")
+        required = p.get("required", False)
+
+        if not required or not name:
+            continue
+
+        if location == "path":
+            required_path.append(name)
+        elif location == "query":
+            required_query.append(name)
+        elif location == "header":
+            required_header.append(name)
+
+    return required_path, required_query, required_header
+
+def build_preconditions(swagger, info, method_upper, path, all_params, has_body):
+    preconditions = [f"Доступен endpoint {method_upper} {path}"]
+
+    required_path, required_query, required_header = extract_required_parameters(all_params)
+
+    if required_path:
+        preconditions.append(
+            f"Подготовлены обязательные path-параметры: {', '.join(required_path)}"
+        )
+
+    if required_query:
+        preconditions.append(
+            f"Подготовлены обязательные query-параметры: {', '.join(required_query)}"
+        )
+
+    if required_header:
+        preconditions.append(
+            f"Подготовлены обязательные header-параметры: {', '.join(required_header)}"
+        )
+
+    security_requirements = extract_security_requirements(swagger, info)
+    if security_requirements:
+        preconditions.append(
+            f"Подготовлены данные авторизации по схеме: {', '.join(security_requirements)}"
+        )
+
+    if has_body:
+        required_fields = extract_required_body_fields(swagger, info)
+        if required_fields:
+            preconditions.append(
+                f"Тело запроса содержит обязательные поля: {', '.join(required_fields)}"
+            )
+        else:
+            preconditions.append("Подготовлено тело запроса в соответствии со спецификацией")
+
+    return preconditions
+
+def build_postconditions(target_status, response_description):
+    postconditions = [f"Сервис возвращает HTTP-статус {target_status}"]
+
+    if response_description:
+        postconditions.append(f"Описание результата соответствует спецификации: {response_description}")
+
+    if str(target_status) == "204":
+        postconditions.append("Тело ответа отсутствует")
+    else:
+        postconditions.append("Ответ соответствует контракту API")
+
+    return postconditions
+def build_positive_test_case(summary, method_upper, path, path_params, query_params, has_body,
+                             target_success, success_description, preconditions):
     steps = []
     step_number = 1
 
@@ -45,14 +167,8 @@ def build_positive_test_case(summary, method_upper, path, path_params, query_par
     return {
         "name": f"{summary} — позитивный сценарий",
         "description": f"Проверка успешного выполнения запроса {method_upper} {path}",
-        "preconditions": [
-            "API доступно",
-            "Пользователь авторизован, если endpoint требует авторизации",
-            "Есть валидные тестовые данные для запроса"
-        ],
-        "postconditions": [
-            "Система остается в консистентном состоянии"
-        ],
+        "preconditions": preconditions,
+        "postconditions": build_postconditions(target_success, success_description),
         "priority": "Medium",
         "type": "Positive",
         "endpoint": {
@@ -73,7 +189,7 @@ def build_positive_test_case(summary, method_upper, path, path_params, query_par
     }
 
 
-def build_negative_test_case(summary, method_upper, path, code, error_description):
+def build_negative_test_case(summary, method_upper, path, code, error_description, preconditions):
     display_code = "400 (Bad Request)" if code == "4XX" else code
 
     steps = [
@@ -92,13 +208,8 @@ def build_negative_test_case(summary, method_upper, path, code, error_descriptio
     return {
         "name": f"{summary} — негативный сценарий ({display_code})",
         "description": f"Проверка обработки ошибки для запроса {method_upper} {path}",
-        "preconditions": [
-            "API доступно",
-            "Подготовлены невалидные или неполные входные данные"
-        ],
-        "postconditions": [
-            "Некорректные данные не приводят к успешному изменению состояния системы"
-        ],
+        "preconditions": preconditions + ["Подготовлены невалидные или неполные входные данные"],
+        "postconditions": build_postconditions(code, error_description),
         "priority": "Medium",
         "type": "Negative",
         "endpoint": {
@@ -136,13 +247,21 @@ def generate_tests(swagger):
 
             method_params = info.get("parameters", [])
             all_params = path_level_params + method_params
+            has_body = "requestBody" in info
+
+            preconditions = build_preconditions(
+                swagger=swagger,
+                info=info,
+                method_upper=method_upper,
+                path=path,
+                all_params=all_params,
+                has_body=has_body
+            )
 
             # разделение параметров по расположению
             #parameters = info.get("parameters", [])
             path_params = [p.get("name") for p in all_params if isinstance(p, dict) and p.get("in") == "path"]
             query_params = [p.get("name") for p in all_params if isinstance(p, dict) and p.get("in") == "query"]
-
-            has_body = "requestBody" in info
 
             responses = info.get("responses", {})
 
@@ -160,7 +279,8 @@ def generate_tests(swagger):
                 query_params=query_params,
                 has_body=has_body,
                 target_success=target_success,
-                success_description=succes_description
+                success_description=succes_description,
+                preconditions=preconditions
             )
             tests.append(positive_test)
 
@@ -181,7 +301,8 @@ def generate_tests(swagger):
                     method_upper=method_upper,
                     path=path,
                     code=code,
-                    error_description=error_description
+                    error_description=error_description,
+                    preconditions=preconditions
                 )
                 tests.append(negative_test)
     return tests
