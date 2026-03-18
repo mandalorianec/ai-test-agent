@@ -140,9 +140,7 @@ async def generate_test_cases(file: UploadFile = File(...)):
 
     testit_tests = [map_to_testit_format(t) for t in tests]
 
-    results = await send_all_tests(testit_tests)
+    await send_all_tests(testit_tests)
 
-    success = sum(1 for r in results if r["status"] == 200)
 
-    return {"created": len(tests),
-            "success": success}
+    return {"created": len(tests)}
