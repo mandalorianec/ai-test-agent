@@ -31,7 +31,7 @@ app.add_middleware(
 TEST_IT_URL_ITEMS = "https://team-a0ff.testit.software/api/v2/workItems"
 TEST_IT_API_TOKEN = "UDlWRVhxa0hrYlFqekVtWWN4"
 PROJECT_ID = "019ce25b-28d8-7ff0-b14f-0d2f51c7a953"
-SECTION_ID = "68138dda-b2a8-4c10-b4e3-78a82bcc48a5"
+SECTION_ID = "0ab7fd39-1730-484a-a08a-f45940fc2184"
 
 HEADERS = {
     "Authorization": f"PrivateToken {TEST_IT_API_TOKEN}",
