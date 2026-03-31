@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "htmlTagsActionType": "Default",
+  "columnsMapping": [
+    {
+      "columnName": "ID",
+      "field": null,
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Автоматизирован",
+      "field": null,
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Автор",
+      "field": null,
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Дата создания",
+      "field": null,
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Длительность",
+      "field": "duration",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Итерации",
+      "field": null,
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Комментарии",
+      "field": "description",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Наименование",
+      "field": "name",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Ожидаемый результат",
+      "field": "stepsExpected",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Постусловия",
+      "field": "postconditionStepsAction",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Предусловия",
+      "field": "preconditionStepsAction",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Приоритет",
+      "field": "priority",
+      "valuesMapping": [
+        {
+          "columnValue": "Критический",
+          "fieldValue": "Highest"
+        },
+        {
+          "columnValue": "Высокий",
+          "fieldValue": "High"
+        },
+        {
+          "columnValue": "Средний",
+          "fieldValue": "Medium"
+        },
+        {
+          "columnValue": "Низкий",
+          "fieldValue": "Low"
+        },
+        {
+          "columnValue": "Незначительный",
+          "fieldValue": "Lowest"
+        }
+      ]
+    },
+    {
+      "columnName": "Расположение",
+      "field": "section",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Статус",
+      "field": "state",
+      "valuesMapping": [
+        {
+          "columnValue": "Готов",
+          "fieldValue": "Ready"
+        },
+        {
+          "columnValue": "Черновик",
+          "fieldValue": "Draft"
+        },
+        {
+          "columnValue": "На ревью",
+          "fieldValue": "NeedsWork"
+        },
+        {
+          "columnValue": "Устарел",
+          "fieldValue": "Outdated"
+        },
+        {
+          "columnValue": "Одобрен",
+          "fieldValue": "Approved"
+        }
+      ]
+    },
+    {
+      "columnName": "Тег",
+      "field": null,
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Тестовые данные",
+      "field": "stepsTestData",
+      "valuesMapping": []
+    },
+    {
+      "columnName": "Шаги",
+      "field": "stepsAction",
+      "valuesMapping": []
+    }
+  ]
+}
