@@ -129,7 +129,7 @@ def build_postconditions(target_status, response_description):
 
     return postconditions
 def build_positive_test_case(summary, method_upper, path, path_params, query_params, has_body,
-                             target_success, success_description, preconditions):
+                             target_success, success_description, preconditions, swagger, info):
     steps = []
     step_number = 1
 
@@ -184,7 +184,8 @@ def build_positive_test_case(summary, method_upper, path, path_params, query_par
         "metadata": {
             "has_body": has_body,
             "path_params": path_params,
-            "query_params": query_params
+            "query_params": query_params,
+            "required_body_fields": extract_required_body_fields(swagger, info) if has_body else []
         }
     }
 
@@ -280,7 +281,9 @@ def generate_tests(swagger):
                 has_body=has_body,
                 target_success=target_success,
                 success_description=succes_description,
-                preconditions=preconditions
+                preconditions=preconditions,
+                swagger=swagger,
+                info=info
             )
             tests.append(positive_test)
 
