@@ -1,13 +1,231 @@
 import json
 
-INPUT_FILE = "twilio-messaging.json"
+INPUT_FILE = "discord-api.json"
 
 
 def load_swagger(file_path)->dict:
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+def extract_security_requirements(swagger, info):
+    operation_security = info.get("security")
+    global_security = swagger.get("security", [])
 
+    security = operation_security if operation_security is not None else global_security
+
+    requirements = []
+    for item in security:
+        if isinstance(item, dict):
+            for scheme_name in item.keys():
+                requirements.append(scheme_name)
+
+    return requirements
+def extract_required_body_fields(swagger, info):
+    request_body = info.get("requestBody", {})
+    content = request_body.get("content", {})
+    json_content = content.get("application/json", {})
+    schema = json_content.get("schema", {})
+
+    schema = resolve_schema_ref(swagger, schema)
+
+    if not isinstance(schema, dict):
+        return []
+
+    return schema.get("required", [])
+def resolve_schema_ref(swagger, schema):
+    if not isinstance(schema, dict):
+        return schema
+
+    ref = schema.get("$ref")
+    if not ref:
+        return schema
+
+    if not ref.startswith("#/"):
+        return schema
+
+    parts = ref.lstrip("#/").split("/")
+    result = swagger
+
+    for part in parts:
+        if isinstance(result, dict):
+            result = result.get(part)
+        else:
+            return schema
+
+    return result if result is not None else schema
+
+def extract_required_parameters(all_params):
+    required_path = []
+    required_query = []
+    required_header = []
+
+    for p in all_params:
+        if not isinstance(p, dict):
+            continue
+
+        name = p.get("name")
+        location = p.get("in")
+        required = p.get("required", False)
+
+        if not required or not name:
+            continue
+
+        if location == "path":
+            required_path.append(name)
+        elif location == "query":
+            required_query.append(name)
+        elif location == "header":
+            required_header.append(name)
+
+    return required_path, required_query, required_header
+
+def build_preconditions(swagger, info, method_upper, path, all_params, has_body):
+    preconditions = [f"Доступен endpoint {method_upper} {path}"]
+
+    required_path, required_query, required_header = extract_required_parameters(all_params)
+
+    if required_path:
+        preconditions.append(
+            f"Подготовлены обязательные path-параметры: {', '.join(required_path)}"
+        )
+
+    if required_query:
+        preconditions.append(
+            f"Подготовлены обязательные query-параметры: {', '.join(required_query)}"
+        )
+
+    if required_header:
+        preconditions.append(
+            f"Подготовлены обязательные header-параметры: {', '.join(required_header)}"
+        )
+
+    security_requirements = extract_security_requirements(swagger, info)
+    if security_requirements:
+        preconditions.append(
+            f"Подготовлены данные авторизации по схеме: {', '.join(security_requirements)}"
+        )
+
+    if has_body:
+        required_fields = extract_required_body_fields(swagger, info)
+        if required_fields:
+            preconditions.append(
+                f"Тело запроса содержит обязательные поля: {', '.join(required_fields)}"
+            )
+        else:
+            preconditions.append("Подготовлено тело запроса в соответствии со спецификацией")
+
+    return preconditions
+
+def build_postconditions(target_status, response_description):
+    postconditions = [f"Сервис возвращает HTTP-статус {target_status}"]
+
+    if response_description:
+        postconditions.append(f"Описание результата соответствует спецификации: {response_description}")
+
+    if str(target_status) == "204":
+        postconditions.append("Тело ответа отсутствует")
+    else:
+        postconditions.append("Ответ соответствует контракту API")
+
+    return postconditions
+def build_positive_test_case(summary, method_upper, path, path_params, query_params, has_body,
+                             target_success, success_description, preconditions):
+    steps = []
+    step_number = 1
+
+    steps.append({
+        "step_number": step_number,
+        "action": f"Отправить {method_upper} запрос на endpoint {path}",
+        "expected_result": "Запрос отправлен"
+    })
+    step_number += 1
+
+    if path_params:
+        steps.append({
+            "step_number": step_number,
+            "action": f"Подставить валидные значения в path-параметры: {', '.join(path_params)}",
+            "expected_result": "Path-параметры заполнены корректно"
+        })
+        step_number += 1
+
+    if query_params:
+        steps.append({
+            "step_number": step_number,
+            "action": f"Указать валидные query-параметры: {', '.join(query_params)}",
+            "expected_result": "Query-параметры заполнены корректно"
+        })
+        step_number += 1
+
+    if has_body:
+        steps.append({
+            "step_number": step_number,
+            "action": "Передать корректное JSON-тело запроса",
+            "expected_result": "Тело запроса соответствует контракту API"
+        })
+        step_number += 1
+
+    return {
+        "name": f"{summary} — позитивный сценарий",
+        "description": f"Проверка успешного выполнения запроса {method_upper} {path}",
+        "preconditions": preconditions,
+        "postconditions": build_postconditions(target_success, success_description),
+        "priority": "Medium",
+        "type": "Positive",
+        "endpoint": {
+            "method": method_upper,
+            "path": path
+        },
+        "steps": steps,
+        "expected_result": {
+            "status_code": target_success,
+            "message": success_description
+        },
+        "tags": ["api", "positive", method_upper.lower()],
+        "metadata": {
+            "has_body": has_body,
+            "path_params": path_params,
+            "query_params": query_params
+        }
+    }
+
+
+def build_negative_test_case(summary, method_upper, path, code, error_description, preconditions):
+    display_code = "400 (Bad Request)" if code == "4XX" else code
+
+    steps = [
+        {
+            "step_number": 1,
+            "action": f"Отправить {method_upper} запрос на endpoint {path}",
+            "expected_result": "Запрос отправлен"
+        },
+        {
+            "step_number": 2,
+            "action": "Передать некорректные, пустые или невалидные данные",
+            "expected_result": "Сервис выполняет валидацию и отклоняет запрос"
+        }
+    ]
+
+    return {
+        "name": f"{summary} — негативный сценарий ({display_code})",
+        "description": f"Проверка обработки ошибки для запроса {method_upper} {path}",
+        "preconditions": preconditions + ["Подготовлены невалидные или неполные входные данные"],
+        "postconditions": build_postconditions(code, error_description),
+        "priority": "Medium",
+        "type": "Negative",
+        "endpoint": {
+            "method": method_upper,
+            "path": path
+        },
+        "steps": steps,
+        "expected_result": {
+            "status_code": code,
+            "message": error_description
+        },
+        "tags": ["api", "negative", method_upper.lower()],
+        "metadata": {
+            "error_code": code
+        }
+    }
 def generate_tests(swagger):
     if not(swagger):
         return []
@@ -29,13 +247,21 @@ def generate_tests(swagger):
 
             method_params = info.get("parameters", [])
             all_params = path_level_params + method_params
+            has_body = "requestBody" in info
+
+            preconditions = build_preconditions(
+                swagger=swagger,
+                info=info,
+                method_upper=method_upper,
+                path=path,
+                all_params=all_params,
+                has_body=has_body
+            )
 
             # разделение параметров по расположению
-            parameters = info.get("parameters", [])
+            #parameters = info.get("parameters", [])
             path_params = [p.get("name") for p in all_params if isinstance(p, dict) and p.get("in") == "path"]
             query_params = [p.get("name") for p in all_params if isinstance(p, dict) and p.get("in") == "query"]
-
-            has_body = "requestBody" in info
 
             responses = info.get("responses", {})
 
@@ -44,70 +270,56 @@ def generate_tests(swagger):
 
             target_success = success_codes[0] if success_codes else "200"
             succes_description = responses.get(target_success, {}).get("description", "Запрос выполнен успешно")
-            pos_steps = []
-            pos_steps.append(f"1. Отправить {method_upper} запрос на {path}")
 
-            step = 2
-            if path_params:
-                pos_steps.append(f"{step}. Подставить валидные значения в путь: {', '.join(path_params)}")
-                step += 1
-            if query_params:
-                pos_steps.append(f"{step}. Указать Query-параметры: {', '.join(query_params)}")
-                step+=1
-            if has_body:
-                pos_steps.append(f"{step}. Передать корректное JSON-тело запроса")
-                step+=1
-            pos_test_text = (f"{summary}\n"
-                             f"Endpoint: {method_upper} {path}\n"
-                             f"Тип теста: Позитивный\n\n"
-                             f"Шаги" + "\n".join(pos_steps) + "\n\n"
-                             f"Ожидаемый результат:\n"
-                             f"- Статус ответа: {target_success}\n"
-                             f"- {succes_description}\n"
+            positive_test = build_positive_test_case(
+                summary=summary,
+                method_upper=method_upper,
+                path=path,
+                path_params=path_params,
+                query_params=query_params,
+                has_body=has_body,
+                target_success=target_success,
+                success_description=succes_description,
+                preconditions=preconditions
             )
-            tests.append(pos_test_text)
+            tests.append(positive_test)
 
 
 
             # негативные тесты
             negative_codes = [code for code in responses if code.startswith("4") or code.startswith("5")]
 
-            # стандартный негативный код, если в сваггере их нет
             if not negative_codes:
                 negative_codes = ["400"]
-
-
             for code in negative_codes:
-                display_code = "400 (Bad Request)" if code == "4XX" else code
-                error_description = responses.get(code, {}).get("description", "Возвращена ошибка валидации или сервера")
-                negative_test_text = (
-                    f"{summary}\n"
-                    f"Endpoint: {method_upper} {path}\n"
-                    f"Тип теста: Негативный ({display_code})\n"
-                    f"Шаги:\n"
-                    f"1. Отправить {method_upper} запрос на {path}\n"
-                    f"2. Передать некорректные или пустые данные\n"
-                    f"Ожидаемый результат:\n"
-                    f"- Статус ответа: {code}\n"
-                    f"- Сообщение об ошибке: {error_description}"
+                error_description = responses.get(code, {}).get(
+                    "description",
+                    "Возвращена ошибка валидации или сервера"
                 )
-                tests.append(negative_test_text)
-
+                negative_test = build_negative_test_case(
+                    summary=summary,
+                    method_upper=method_upper,
+                    path=path,
+                    code=code,
+                    error_description=error_description,
+                    preconditions=preconditions
+                )
+                tests.append(negative_test)
     return tests
 
 
 
 def get_json_response(file_path):
-
     swagger_data = load_swagger(file_path)
 
     if swagger_data is None:
-        return json.dumps({"success": False, "tests": []}, ensure_ascii=False)
+        return json.dumps({"success": False, "tests": []}, ensure_ascii=False, indent=4)
 
     try:
         tests = generate_tests(swagger_data)
         result = {
             "success": True,
+            "total_tests": len(tests),
             "tests": tests
         }
     except Exception as e:
@@ -125,7 +337,6 @@ def main():
     tests = generate_tests(swagger)
 
     print(get_json_response(INPUT_FILE))
-    #print(generate_tests(swagger))
 
     print(f"Сгенерировано тестов: {len(tests)}")
 

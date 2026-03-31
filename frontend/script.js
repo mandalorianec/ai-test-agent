@@ -26,7 +26,7 @@ form.addEventListener("submit", async function (event) {
 
         statusBlock.textContent = "Отправка файла на сервер..."
 
-        const response = await fetch("http://localhost:8000/generate", {
+        const response = await fetch("http://213.165.52.36:8000/generate", {
             method: "POST",
             body: formData,
         });
