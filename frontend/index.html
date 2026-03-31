@@ -1,40 +1,72 @@
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Test Agent</title>
+    <title>AI Test Agent — TestIT</title>
     <link rel="stylesheet" href="./styles.css">
-    
 </head>
 <body>
-    <main>
-        <h1 class="title">AI Test Agent</h1>
-        <section class="file-sending">
-            <p class="file-sending__description">
-                Загрузите JSON-файл со Swagger/OpenAPI-спецификацией
-            </p>
-
-            <form action="" class="file-sending__form-sending form-sending" id="upload-form">
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar__brand">
                 <div>
-                    <input 
-                    type="file" 
-                    accept=".json" 
-                    name="file" 
-                    class="form-sending__choose-input" 
-                    id="file-send">
+                    <h2 class="sidebar__title">AI Test Agent</h2>
+                </div>
+            </div>
+
+            <nav class="sidebar__nav">
+                <a class="sidebar__link sidebar__link--active" href="./index.html">
+                    <span>Отправка в TestIT</span>
+                </a>
+                <a class="sidebar__link" href="./csv-export.html">
+                    <span>Генерация XLSX</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="page-content">
+            <section class="hero-card">
+                <div class="hero-card__badge">Swagger / OpenAPI</div>
+                <h1 class="hero-card__title">Генерация тест-кейсов для TestIT</h1>
+                <p class="hero-card__text">
+                    Загрузите JSON-файл со Swagger/OpenAPI-спецификацией. Файл будет отправлен на сервер,
+                    после чего сервер сформирует тест-кейсы и передаст их на TestIT.
+                </p>
+            </section>
+
+            <section class="panel">
+                <div class="panel__header">
+                    <h2 class="panel__title">Загрузка спецификации</h2>
+                    <p class="panel__description">Поддерживается только JSON-файл.</p>
                 </div>
 
-                <button class="form-sending__send-input" id="submit-btn" type="submit">
-                    Отправить тест-кейсы
-                </button>
-            </form>
+                <form class="upload-form" id="upload-form">
+                    <label class="file-input" for="file-send">
+                        <span class="file-input__caption">Выберите JSON-файл</span>
 
-            <div id="status" class="file-sending__status"></div>
-        </section>
-    </main>
+                        <input
+                            type="file"
+                            accept=".json,application/json"
+                            name="file"
+                            id="file-send"
+                            class="file-input__native"
+                        >
 
+                        <span class="file-input__button">Выбрать файл</span>
+                        <span class="file-input__filename" id="file-name">Файл не выбран</span>
+                    </label>
 
+                    <button class="primary-button" id="submit-btn" type="submit">
+                        Отправить тест-кейсы
+                    </button>
+                </form>
 
-    <script src="script.js"></script>
+                <div id="status" class="status-box" aria-live="polite"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="./script.js"></script>
 </body>
 </html>
