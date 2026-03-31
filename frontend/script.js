@@ -1,41 +1,57 @@
-'use strict'
+'use strict';
 
-const form = document.getElementById("upload-form")
-const fileInput = document.getElementById("file-send")
-const statusBlock = document.getElementById("status")
+const API_URL = 'http://213.165.52.36:8000/generate';
 
+const form = document.getElementById('upload-form');
+const fileInput = document.getElementById('file-send');
+const fileName = document.getElementById('file-name');
+const statusBlock = document.getElementById('status');
 
-form.addEventListener("submit", async function (event) {
-    event.preventDefault()
+function setStatus(message, type = '') {
+  statusBlock.textContent = message;
+  statusBlock.classList.remove('status-box--success', 'status-box--error');
 
-    //Получение файла
-    const file = fileInput.files[0]
+  if (type === 'success') {
+    statusBlock.classList.add('status-box--success');
+  }
 
-    if (!file) {
-        statusBlock.textContent = "Выберите JSON файл."
-        return
+  if (type === 'error') {
+    statusBlock.classList.add('status-box--error');
+  }
+}
+
+fileInput.addEventListener('change', () => {
+  const selectedFile = fileInput.files[0];
+  fileName.textContent = selectedFile ? selectedFile.name : 'Файл не выбран';
+});
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const file = fileInput.files[0];
+
+  if (!file) {
+    setStatus('Выберите JSON-файл.', 'error');
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setStatus('Отправка файла на сервер...');
+
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ошибка сервера: ${response.status}`);
     }
 
-    statusBlock.textContent = "Файл выбран, пожалуйста подождите..."
-
-    try {
-        // Запрос
-
-        const formData = new FormData()
-        formData.append("file", file)
-
-        statusBlock.textContent = "Отправка файла на сервер..."
-
-        const response = await fetch("http://213.165.52.36:8000/generate", {
-            method: "POST",
-            body: formData,
-        });
-
-        if (!response.ok) {
-            throw new Error(`Ошибка сервера: ${response.status}`)
-        }
-
-    } catch (error) {
-        statusBlock.textContent = `Ошибка ${error.message}`
-    }
-})
+    setStatus('Файл успешно отправлен. Сервер принял запрос на генерацию тест-кейсов.', 'success');
+  } catch (error) {
+    setStatus(`Ошибка: ${error.message}`, 'error');
+  }
+});
