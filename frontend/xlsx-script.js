@@ -1,6 +1,6 @@
 'use strict';
 
-const XLSX_API_URL = 'http://213.165.52.36:8000/generate-xlsx';
+const XLSX_API_URL = 'http://213.165.52.36:8000/xlsx';
 
 const xlsxForm = document.getElementById('xlsx-upload-form');
 const xlsxFileInput = document.getElementById('xlsx-file-send');
