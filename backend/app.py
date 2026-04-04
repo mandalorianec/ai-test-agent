@@ -12,7 +12,7 @@ from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
 from openpyxl.utils import get_column_letter
 
 from main import generate_tests
-from csv_maker import generate_excel_table_dict_from_swagger
+from xlsx_maker import generate_excel_table_dict_from_swagger
 
 
 app = FastAPI(title="AI Test Agent Backend")
