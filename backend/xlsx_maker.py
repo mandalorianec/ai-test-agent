@@ -209,7 +209,7 @@ def generate_excel_table_dict_from_swagger(
     tests = generate_tests(swagger)
     enhanced_tests = enhance_test_cases_with_ai(tests)
     return build_excel_table_dict(
-        tests=tests,
+        tests=enhanced_tests,
         project_name=project_name,
         author=author,
         status=status,
