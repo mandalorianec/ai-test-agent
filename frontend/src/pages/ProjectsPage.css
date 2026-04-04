@@ -1,0 +1,28 @@
+.projects-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.projects-page__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.projects-page__create-button {
+  min-width: 180px;
+  height: 48px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 14px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.projects-page__create-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
