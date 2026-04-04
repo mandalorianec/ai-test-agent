@@ -12,7 +12,7 @@ from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
 from openpyxl.utils import get_column_letter
 
 from main import generate_tests
-from xlsx_maker import generate_excel_table_dict_from_swagger
+from xlsx_maker import generate_excel_table_dict_from_swagger, enhance_test_cases_with_ai
 
 
 app = FastAPI(title="AI Test Agent Backend")
@@ -217,11 +217,12 @@ async def generate(file: UploadFile = File(...)):
 
     try:
         tests = generate_tests(swagger_data)
+        enhanced_test = enhance_test_cases_with_ai(tests)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка генерации тестов: {e}")
 
     try:
-        testit_tests = [map_to_testit_format(t) for t in tests]
+        testit_tests = [map_to_testit_format(t) for t in enhanced_test]
         results = await send_all_tests(testit_tests)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка отправки в Test IT: {e}")
@@ -230,7 +231,7 @@ async def generate(file: UploadFile = File(...)):
     failed = [result for result in results if result.get("status") not in (200, 201)]
 
     return {
-        "generated": len(tests),
+        "generated": len(enhanced_test),
         "created": created_count,
         "failed": failed,
     }
