@@ -8,6 +8,7 @@ from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
 from openpyxl.utils import get_column_letter
 
 from main import generate_tests
+from gemini import enhance_test_cases_with_ai
 
 
 TESTIT_TEMPLATE_COLUMNS = [
@@ -206,8 +207,9 @@ def generate_excel_table_dict_from_swagger(
     start_id: int | None = None,
 ) -> dict:
     tests = generate_tests(swagger)
+    enhanced_tests = enhance_test_cases_with_ai(tests)
     return build_excel_table_dict(
-        tests=tests,
+        tests=enhanced_tests,
         project_name=project_name,
         author=author,
         status=status,
