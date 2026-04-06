@@ -4,6 +4,7 @@ import json
 from urllib.parse import quote
 
 import httpx
+import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -12,7 +13,8 @@ from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
 from openpyxl.utils import get_column_letter
 
 from main import generate_tests
-from xlsx_maker import generate_excel_table_dict_from_swagger, enhance_test_case_with_ai
+from xlsx_maker import generate_excel_table_dict_from_swagger
+from qwen import enhance_test_case_with_ai
 
 
 app = FastAPI(title="AI Test Agent Backend")
@@ -126,7 +128,7 @@ async def send_to_testit(client: httpx.AsyncClient, test: dict):
             }
 
 
-async def send_all_tests(testit_tests: list):
+async def send_all_tests(testit_tests: list[dict]):
     limits = httpx.Limits(
         max_connections=10,
         max_keepalive_connections=5,
@@ -211,18 +213,43 @@ def create_excel_stream(excel_table: dict) -> io.BytesIO:
     return stream
 
 
+def enhance_test_cases_with_ai_or_fail(tests: list[dict]) -> list[dict]:
+    if not tests:
+        raise ValueError("Список тест-кейсов пуст")
+
+    enhanced_tests = []
+
+    for index, test in enumerate(tests, start=1):
+        try:
+            enhanced = enhance_test_case_with_ai(test)
+        except Exception as e:
+            raise RuntimeError(f"AI не смог обработать тест-кейс #{index} ({test.get('name', 'без имени')}): {e}")
+
+        if not isinstance(enhanced, dict):
+            raise RuntimeError(
+                f"AI вернул некорректный формат для тест-кейса #{index} ({test.get('name', 'без имени')})"
+            )
+
+        enhanced_tests.append(enhanced)
+
+    if not enhanced_tests:
+        raise ValueError("AI не вернул ни одного тест-кейса")
+
+    return enhanced_tests
+
+
 @app.post("/generate")
 async def generate(file: UploadFile = File(...)):
     swagger_data = await read_swagger_json(file)
 
     try:
         tests = generate_tests(swagger_data)
-        enhanced_test = enhance_test_case_with_ai(tests)
+        enhanced_tests = enhance_test_cases_with_ai_or_fail(tests)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка генерации тестов: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка генерации AI-тестов: {e}")
 
     try:
-        testit_tests = [map_to_testit_format(t) for t in enhanced_test]
+        testit_tests = [map_to_testit_format(t) for t in enhanced_tests]
         results = await send_all_tests(testit_tests)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка отправки в Test IT: {e}")
@@ -231,7 +258,7 @@ async def generate(file: UploadFile = File(...)):
     failed = [result for result in results if result.get("status") not in (200, 201)]
 
     return {
-        "generated": len(enhanced_test),
+        "generated": len(enhanced_tests),
         "created": created_count,
         "failed": failed,
     }
@@ -289,3 +316,6 @@ async def generate_xlsx(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers=headers,
     )
+
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
