@@ -1,15 +1,6 @@
-import os
-import json
 from datetime import datetime
-from pprint import pprint
-
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
-from openpyxl.utils import get_column_letter
-
 from main import generate_tests
 from qwen import enhance_test_case_with_ai
-
 
 TESTIT_TEMPLATE_COLUMNS = [
     "ID",
@@ -111,12 +102,12 @@ def _build_iteration_value(test: dict) -> str:
 
 
 def _create_test_header_row(
-    test: dict,
-    author: str = "",
-    status: str = "Готов",
-    automated: str = "Нет",
-    duration: str = "",
-    test_id: str = "",
+        test: dict,
+        author: str = "",
+        status: str = "Готов",
+        automated: str = "Нет",
+        duration: str = "",
+        test_id: str = "",
 ) -> dict:
     row = _empty_testit_row()
 
@@ -145,13 +136,13 @@ def _create_test_header_row(
 
 
 def build_excel_table_dict(
-    tests: list[dict],
-    project_name: str = "Demo",
-    author: str = "",
-    status: str = "Готов",
-    automated: str = "Нет",
-    duration: str = "",
-    start_id: int | None = None,
+        tests: list[dict],
+        project_name: str = "Demo",
+        author: str = "",
+        status: str = "Готов",
+        automated: str = "Нет",
+        duration: str = "",
+        start_id: int | None = None,
 ) -> dict:
     rows = []
     current_id = start_id
@@ -197,17 +188,43 @@ def build_excel_table_dict(
     }
 
 
+def enhance_test_cases_with_ai_or_fail(tests: list[dict]) -> list[dict]:
+    if not tests:
+        raise ValueError("Список тест-кейсов пуст")
+
+    enhanced_tests = []
+
+    for index, test in enumerate(tests, start=1):
+        try:
+            enhanced = enhance_test_case_with_ai(test)
+        except Exception as e:
+            raise RuntimeError(f"AI не смог обработать тест-кейс #{index} ({test.get('name', 'без имени')}): {e}")
+
+        if not isinstance(enhanced, dict):
+            raise RuntimeError(
+                f"AI вернул некорректный формат для тест-кейса #{index} ({test.get('name', 'без имени')})"
+            )
+
+        enhanced_tests.append(enhanced)
+
+    if not enhanced_tests:
+        raise ValueError("AI не вернул ни одного тест-кейса")
+
+    return enhanced_tests
+
+
 def generate_excel_table_dict_from_swagger(
-    swagger: dict,
-    project_name: str = "Demo",
-    author: str = "",
-    status: str = "Готов",
-    automated: str = "Нет",
-    duration: str = "",
-    start_id: int | None = None,
+        swagger: dict,
+        project_name: str = "Demo",
+        author: str = "",
+        status: str = "Готов",
+        automated: str = "Нет",
+        duration: str = "",
+        start_id: int | None = None,
 ) -> dict:
     tests = generate_tests(swagger)
-    enhanced_tests = enhance_test_cases_with_ai(tests)
+    enhanced_tests = enhance_test_cases_with_ai_or_fail(tests)
+
     return build_excel_table_dict(
         tests=enhanced_tests,
         project_name=project_name,
@@ -235,9 +252,6 @@ def preview_excel_table_dict(excel_table: dict, limit: int = 10):
 
 
 def create_excel_file(excel_table: dict, output_path: str = "testit_export.xlsx") -> str:
-
-    #Создаёт xlsx-файл из словаря excel_table и возвращает путь к файлу.
-
     wb = Workbook()
     ws = wb.active
 
@@ -247,21 +261,18 @@ def create_excel_file(excel_table: dict, output_path: str = "testit_export.xlsx"
     columns = excel_table.get("columns", [])
     rows = excel_table.get("rows", [])
 
-    # Header
     for col_idx, column_name in enumerate(columns, start=1):
         cell = ws.cell(row=1, column=col_idx, value=column_name)
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
         cell.fill = PatternFill(fill_type="solid", fgColor="D9EAF7")
 
-    # Data
     for row_idx, row_data in enumerate(rows, start=2):
         for col_idx, column_name in enumerate(columns, start=1):
             value = row_data.get(column_name, "")
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
 
-    # Widths — близко к шаблону
     column_widths = {
         "A": 11,
         "B": 51,
@@ -285,7 +296,6 @@ def create_excel_file(excel_table: dict, output_path: str = "testit_export.xlsx"
     for col_letter, width in column_widths.items():
         ws.column_dimensions[col_letter].width = width
 
-    # Borders
     thin = Side(style="thin", color="D9D9D9")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
@@ -296,44 +306,13 @@ def create_excel_file(excel_table: dict, output_path: str = "testit_export.xlsx"
         for cell in row:
             cell.border = border
 
-    # Row heights
     ws.row_dimensions[1].height = 24
     for row_idx in range(2, max_row + 1):
         ws.row_dimensions[row_idx].height = 36
 
-    # Freeze header
     ws.freeze_panes = "A2"
-
-    # Auto filter
     ws.auto_filter.ref = f"A1:{get_column_letter(max_col)}{max_row}"
 
-    # Save
     wb.save(output_path)
     return output_path
-
-if __name__ == "__main__":
-    SWAGGER_PATH = "discord-api.json"
-    OUTPUT_XLSX_PATH = "testit_export.xlsx"
-
-    if not os.path.exists(SWAGGER_PATH):
-        print(f"Файл не найден: {SWAGGER_PATH}")
-        raise SystemExit(1)
-
-    with open(SWAGGER_PATH, "r", encoding="utf-8") as f:
-        swagger = json.load(f)
-
-    excel_table = generate_excel_table_dict_from_swagger(
-        swagger=swagger,
-        project_name="Демо-проект🚀",
-        author="Артемизий",
-        status="Готов",
-        automated="Нет",
-        duration="0h 5m 0s",
-        start_id=1,
-    )
-
-    preview_excel_table_dict(excel_table, limit=12)
-
-    created_file = create_excel_file(excel_table, OUTPUT_XLSX_PATH)
-    print(f"Excel файл создан: {created_file}")
-    """
+"""
