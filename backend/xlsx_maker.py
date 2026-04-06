@@ -8,7 +8,7 @@ from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
 from openpyxl.utils import get_column_letter
 
 from main import generate_tests
-from gemini import enhance_test_cases_with_ai
+from qwen import enhance_test_cases_with_ai
 
 
 TESTIT_TEMPLATE_COLUMNS = [
