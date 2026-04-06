@@ -217,7 +217,7 @@ async def generate(file: UploadFile = File(...)):
 
     try:
         tests = generate_tests(swagger_data)
-        enhanced_test = enhance_test_cases_with_ai(tests)
+        enhanced_test = enhance_test_case_with_ai(tests)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка генерации тестов: {e}")
 
